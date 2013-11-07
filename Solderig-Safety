@@ -10,29 +10,24 @@ something up that turned it off automatically just in case I forgot.  I know tha
 Belkin makes a device to do this, but it's only available by mail order in my area, so 
 I figured I probably had the parts needed to make this (most of which I did, everything 
 else I was able to find at the nearby hardware store).  
-I used a 12v relay because I have so many of them stripped from microwave ovens and other 
-appliances.  If you have a 5v relay with a current draw under 20mA (for the coil) you 
-should be able to do this without a transistor and a dual DC power supply (this project uses
-a 12v PSU from 110v house mains for the relay circuit and an LM7805 regulator for supply to 
-the microcontroller}.
-
-Prototyped on Arduino and ported to ATtiny85 after working out bugs.
+Initially I used a 12v relay because I have so many of them stripped from microwave ovens and other 
+appliances.  I changed to a 5v relay to eliminate the dual DC power supply (one voltage regulator
+instead of 2).
+Prototyped on Arduino and ported to ATtiny85 using: https://github.com/damellis/attiny . I then worked out 
+the additional bugs on with the ATtiny85- ended up using Board Attiny85 1MHz (when I used the 8MHz version
+all my times ended up wonky).
 */
 
-/*
-Pins -all pins used are digital pins
-*/
+//Pin Assignments    
 int LEDOffPin = 0;  //Red LED, Soldering Iron Off
-int LEDOnPin = 1;  //Greeb LED Soldering Iron On
-int RelayPin = 3;  
-/*This goes to the base, through a resistor, of an NPN transistor to 
-control a relay*/
-int ButtonPin = 2;  //Button to activate/reset timer (has a PullDown resistor)
+int LEDOnPin = 1;  //Green LED, Soldering Iron On
+int RelayPin = 3; //Base of 2N4401 through resistor
+int ButtonPin = 2;  //Button to activate/reset timer (has a PullDown resistor, 10K)
 
 //Variables
 unsigned long OnTime; //storage for time when Iron turned on (button pressed)
 unsigned long OffTime;  //storage for time for turning off Iron
-unsigned long DelayTime = 120000; //Delay before turning Iron Off, in msec (2min)
+unsigned long DelayTime = 900000; //Delay before turning Iron Off, in msec (15min)
 unsigned long NowTime; //storage for current time from millis()
 unsigned long CountDown = 20000; //countdown to turning Iron off, in msec (20sec)
 
@@ -59,19 +54,17 @@ void loop() {
   ButtonState = digitalRead(ButtonPin);  //Still NEED DeBounce code 
      
   if (ButtonState == HIGH)  { 
-    /*changed "=" to "==" now does not automatically switch to on after the 
-    initial  2 second delay, butt when button is pressed circuit is only active
-    as long as button is pressed*/
     OnTime = NowTime; //time Iron turns on
-    OffTime = OnTime + DelayTime;  //time when Iron is shut off
-    digitalWrite(RelayPin, HIGH);  //turns Iron on 
+    OffTime = (OnTime + DelayTime);  //time when Iron is shut off
     RelayState = HIGH;  //relay is active and Iron is on
+    digitalWrite(RelayPin, RelayState);  //turns Iron on 
     digitalWrite(LEDOffPin, LOW);  //Red LED off
     digitalWrite(LEDOnPin, HIGH);  //Green LED on 
   }
-  
-  if (RelayState == HIGH&&NowTime >= OffTime - CountDown)  {  /*Routine to flash 
+ 
+  /*Routine to flash 
   Red - Green - Red at 1/4 sec intervals beginning at 20 second count down prior to turning off*/
+  if (RelayState == HIGH&&NowTime >= (OffTime - CountDown)&&NowTime < OffTime)  {  
     digitalWrite(LEDOffPin, HIGH); //Red LED on
     digitalWrite(LEDOnPin, LOW);  //Green LED off
     delay (250);  //quarter sec flash
@@ -80,12 +73,10 @@ void loop() {
     delay (250);  //quarter sec flash
   }
   
-  if (NowTime >= OffTime) {
+  if (RelayState == HIGH&&NowTime >= OffTime) {
     digitalWrite(RelayPin, LOW);  //Time is up, turns off Soldering Iron
     RelayState = LOW;  //indicates Relay is off, don't check for time
     digitalWrite(LEDOffPin, HIGH);  //Red LED iluminated
-    digitalWrite(LEDOnPin, LOW);   //Green LED off
-    OffTime = millis();  //sets OffTime to current time (redundancy)
+    digitalWrite(LEDOnPin, LOW);   //Green LED off    
    } 
 }
-
